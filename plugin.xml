@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="cordova-plugin-roil-background-media-player" version="1.0.0"
+        xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>Background media player for ROIL app</name>
+    <description>Plugin to play media in the background when the app is not in foreground</description>
+    <author>The ROIL team &lt;jon@roil.com&gt;</author>
+    <license>Apache 2.0</license>
+    <js-module name="ROILBackgroundMediaPlayer" src="www/index.js">
+        <merges target="cordova.plugins" />
+    </js-module>
+    <platform name="android">
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="ROILBackgroundMediaPlayer">
+                <param name="android-package"
+                       value="com.roil.cordova.plugin.backgroundmediaplayer.ROILBackgroundMediaPlayer" />
+            </feature>
+        </config-file>
+        <config-file parent="/*/application" target="AndroidManifest.xml">
+            <service android:name="com.roil.cordova.plugin.backgroundmediaplayer.ROILBackgroundMediaPlaybackService">
+                <intent-filter>
+                    <action android:name="android.media.browse.MediaBrowserService" />
+                </intent-filter>
+            </service>
+        </config-file>
+        <source-file src="src/android/java/com/roil/cordova/plugin/backgroundmediaplayer/ROILBackgroundMediaPlayer.java"
+                     target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
+    </platform>
+    <platform name="ios">
+        <config-file parent="/*" target="config.xml">
+            <feature name="ROILBackgroundMediaPlayer">
+                <param name="ios-package" value="ROILBackgroundMediaPlayer" />
+            </feature>
+        </config-file>
+        <dependency id="cordova-plugin-add-swift-support" version="2.0.2"/>
+        <source-file src="src/ios/ROILBackgroundMediaPlayer.swift" />
+    </platform>
+</plugin>

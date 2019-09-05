@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "lib": ["DOM", "ES5", "ScriptHost", "ES2015.Promise"],
+    "module": "commonjs",
+    "noImplicitAny": false,
+    "outDir": "www",
+    "sourceMap": true,
+    "sourceRoot": "src/ts",
+    "target": "es5"
+  }
+}
