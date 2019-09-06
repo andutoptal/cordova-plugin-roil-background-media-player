@@ -24,6 +24,8 @@
         </config-file>
         <source-file src="src/android/java/com/roil/cordova/plugin/backgroundmediaplayer/ROILBackgroundMediaPlayer.java"
                      target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
+        <source-file src="src/android/java/com/roil/cordova/plugin/backgroundmediaplayer/ROILBackgroundMediaPlaybackService.java"
+                     target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
     </platform>
     <platform name="ios">
         <config-file parent="/*" target="config.xml">
