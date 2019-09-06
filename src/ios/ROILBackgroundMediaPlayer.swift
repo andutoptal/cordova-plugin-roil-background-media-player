@@ -33,8 +33,9 @@ import AVFoundation
     @objc(play:)
     func play(command: CDVInvokedUrlCommand) -> Void {
         let position = command.argument(at: 0) as! Double
+        let playbackSpeed = command.argument(at: 1) as! Float
         player?.seek(to: CMTime(seconds: position, preferredTimescale: 1), completionHandler: {_ in
-            self.player?.rate = 1.0
+            self.player?.rate = playbackSpeed
             self.player?.volume = 1.0
         })
     }

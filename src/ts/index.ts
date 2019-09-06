@@ -15,14 +15,14 @@ class ROILBackgroundMediaPlayer {
     });
   }
 
-  play(currentTime: number) {
+  play(currentTime: number, playbackSpeed = 1.0) {
     return new Promise<void>((resolve, reject) => {
       cordova.exec(
         () => resolve(),
         () => reject(),
         SERVICE_NAME,
         'play',
-        [currentTime]
+        [currentTime, playbackSpeed]
       );
     });
   }

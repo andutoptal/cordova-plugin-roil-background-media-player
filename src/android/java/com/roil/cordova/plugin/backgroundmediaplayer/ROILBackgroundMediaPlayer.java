@@ -2,14 +2,12 @@ package com.roil.cordova.plugin.backgroundmediaplayer;
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.RemoteException;
-import android.os.SystemClock;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
-import android.support.v4.media.session.PlaybackStateCompat;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -18,9 +16,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 public class ROILBackgroundMediaPlayer extends CordovaPlugin {
+    final private static int PLAY_ACTION_PLAYBACK_SPEED_INDEX = 1;
     final private static int PLAY_ACTION_POSITION_INDEX = 0;
     final private static int SET_MEDIA_SOURCE_ACTION_URL_INDEX = 0;
     final private static int MICROSECONDS_PER_SECOND = 1000;
+
+    final static String CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME = "setPlaybackSpeed";
+    final static String CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME = "playbackSpeed";
 
     private Context context;
     private MediaBrowserCompat mediaBrowser;
@@ -49,7 +51,8 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
                 return true;
             case "play":
                 Double position = args.getDouble(PLAY_ACTION_POSITION_INDEX) * MICROSECONDS_PER_SECOND;
-                this.play(position.intValue(), callbackContext);
+                double playbackSpeed = args.getDouble(PLAY_ACTION_PLAYBACK_SPEED_INDEX);
+                this.play(position.intValue(), playbackSpeed, callbackContext);
                 return true;
             case "setMediaSource":
                 String url = args.getString(SET_MEDIA_SOURCE_ACTION_URL_INDEX);
@@ -76,9 +79,17 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
         callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, position));
     }
 
-    private void play(int position, CallbackContext callbackContext) {
+    private void play(int position, Double playbackSpeed, CallbackContext callbackContext) {
         mediaController.getTransportControls().seekTo(position);
-        mediaController.getTransportControls().play();
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M &&
+                (playbackSpeed < 1.0f || playbackSpeed > 1.0f)) {
+            Bundle customCommandParams = new Bundle();
+            customCommandParams.putFloat(CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME, playbackSpeed.floatValue());
+            mediaController.getTransportControls().sendCustomAction(CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME, customCommandParams);
+        } else {
+            mediaController.getTransportControls().play();
+        }
         callbackContext.success();
     }
 

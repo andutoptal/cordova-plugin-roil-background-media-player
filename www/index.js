@@ -10,9 +10,10 @@ var ROILBackgroundMediaPlayer = /** @class */ (function () {
             cordova.exec(function (currentTime) { return resolve(currentTime); }, function () { return reject(); }, SERVICE_NAME, 'pause', []);
         });
     };
-    ROILBackgroundMediaPlayer.prototype.play = function (currentTime) {
+    ROILBackgroundMediaPlayer.prototype.play = function (currentTime, playbackSpeed) {
+        if (playbackSpeed === void 0) { playbackSpeed = 1.0; }
         return new Promise(function (resolve, reject) {
-            cordova.exec(function () { return resolve(); }, function () { return reject(); }, SERVICE_NAME, 'play', [currentTime]);
+            cordova.exec(function () { return resolve(); }, function () { return reject(); }, SERVICE_NAME, 'play', [currentTime, playbackSpeed]);
         });
     };
     ROILBackgroundMediaPlayer.prototype.setMediaSource = function (src) {

@@ -1,9 +1,13 @@
 package com.roil.cordova.plugin.backgroundmediaplayer;
 
+import android.annotation.TargetApi;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.PlaybackParams;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.ResultReceiver;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.media.MediaBrowserCompat;
@@ -72,6 +76,18 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         public void onSeekTo(long pos) {
             player.seekTo((int) pos);
         }
+
+        @Override
+        @TargetApi(Build.VERSION_CODES.M)
+        public void onCustomAction(String action, Bundle extras) {
+            if (action.equals(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME)) {
+                float playbackSpeed = extras.getFloat(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME);
+                PlaybackParams playbackParams = new PlaybackParams();
+                playbackParams.setSpeed(playbackSpeed);
+                player.setPlaybackParams(playbackParams);
+                scheduleProgressUpdates();
+            }
+        }
     }
 
     @Override
@@ -123,8 +139,14 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         progressUpdatesTask = new TimerTask() {
             @Override
             public void run() {
+                float playbackSpeed;
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    playbackSpeed = player.getPlaybackParams().getSpeed();
+                } else {
+                    playbackSpeed = 1.0f;
+                }
                 PlaybackStateCompat playbackState = new PlaybackStateCompat.Builder()
-                        .setState(PlaybackStateCompat.STATE_PLAYING, player.getCurrentPosition(), 1.0f)
+                        .setState(PlaybackStateCompat.STATE_PLAYING, player.getCurrentPosition(), playbackSpeed)
                         .build();
 
                 mediaSession.setPlaybackState(playbackState);
