@@ -2,31 +2,46 @@ package com.roil.cordova.plugin.backgroundmediaplayer;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.net.URL;
 
 public class ROILBackgroundMediaPlayer extends CordovaPlugin {
-    final private static int PLAY_ACTION_PLAYBACK_SPEED_INDEX = 1;
-    final private static int PLAY_ACTION_POSITION_INDEX = 0;
-    final private static int SET_MEDIA_SOURCE_ACTION_URL_INDEX = 0;
-    final private static int MICROSECONDS_PER_SECOND = 1000;
+    static final String CUSTOM_ACTION_SET_SESSION_METADATA_ACTION_NAME = "setSessionMetadata";
+    static final String CUSTOM_ACTION_SET_SESSION_METADATA_ICON_PARAM_NAME = "icon";
+    static final String CUSTOM_ACTION_SET_SESSION_METADATA_TITLE_PARAM_NAME = "title";
+    static final String CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME = "setPlaybackSpeed";
+    static final String CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME = "playbackSpeed";
 
-    final static String CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME = "setPlaybackSpeed";
-    final static String CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME = "playbackSpeed";
+    private static final int MICROSECONDS_PER_SECOND = 1000;
+    private static final int PLAY_ACTION_PLAYBACK_SPEED_INDEX = 1;
+    private static final int PLAY_ACTION_POSITION_INDEX = 0;
+    private static final int SET_MEDIA_SOURCE_ACTION_IMAGE_URL_INDEX = 2;
+    private static final int SET_MEDIA_SOURCE_ACTION_TITLE_INDEX = 1;
+    private static final int SET_MEDIA_SOURCE_ACTION_URL_INDEX = 0;
 
+    private Bitmap largeIcon;
     private Context context;
     private MediaBrowserCompat mediaBrowser;
     private MediaControllerCompat mediaController;
+    private String title = "";
+    private Uri uri;
 
     private final MediaBrowserCompat.ConnectionCallback connectionCallbacks =
             new MediaBrowserCompat.ConnectionCallback() {
@@ -36,12 +51,14 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
                     try {
                         mediaController = new MediaControllerCompat(context, token);
                         mediaController.getTransportControls().prepareFromUri(uri, null);
+                        if (largeIcon != null && !title.isEmpty()) {
+                            setSessionMetadata();
+                        }
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
                 }
             };
-    private Uri uri;
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -56,7 +73,9 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
                 return true;
             case "setMediaSource":
                 String url = args.getString(SET_MEDIA_SOURCE_ACTION_URL_INDEX);
-                this.setMediaSource(Uri.parse(url), callbackContext);
+                String title = args.getString(SET_MEDIA_SOURCE_ACTION_TITLE_INDEX);
+                String imageUrl = args.getString(SET_MEDIA_SOURCE_ACTION_IMAGE_URL_INDEX);
+                this.setMediaSource(Uri.parse(url), title, imageUrl, callbackContext);
                 return true;
         }
 
@@ -66,17 +85,30 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
     @Override
     protected void pluginInitialize() {
         context = cordova.getContext();
-        mediaBrowser = new MediaBrowserCompat(context,
-                new ComponentName(context, ROILBackgroundMediaPlaybackService.class),
-                connectionCallbacks,
-                null);
+        mediaBrowser = new MediaBrowserCompat(
+            context,
+            new ComponentName(context, ROILBackgroundMediaPlaybackService.class),
+            connectionCallbacks,
+            null
+        );
         mediaBrowser.connect();
     }
 
     private void pause(CallbackContext callbackContext) {
-        mediaController.getTransportControls().pause();
-        float position = mediaController.getPlaybackState().getPosition() / 1000.0f;
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, position));
+        PlaybackStateCompat playbackState = mediaController.getPlaybackState();
+        float position = playbackState.getPosition() / 1000.0f;
+        String state = playbackState.getState() == PlaybackStateCompat.STATE_PLAYING ? "playing" : "paused";
+        mediaController.getTransportControls().stop();
+
+        JSONObject result = new JSONObject();
+        try {
+            result.put("position", position);
+            result.put("state", state);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, result));
     }
 
     private void play(int position, Double playbackSpeed, CallbackContext callbackContext) {
@@ -84,20 +116,42 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M &&
                 (playbackSpeed < 1.0f || playbackSpeed > 1.0f)) {
-            Bundle customCommandParams = new Bundle();
-            customCommandParams.putFloat(CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME, playbackSpeed.floatValue());
-            mediaController.getTransportControls().sendCustomAction(CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME, customCommandParams);
+            Bundle setPlaybackSpeedParams = new Bundle();
+            setPlaybackSpeedParams.putFloat(CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME, playbackSpeed.floatValue());
+            mediaController.getTransportControls().sendCustomAction(CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME, setPlaybackSpeedParams);
         } else {
             mediaController.getTransportControls().play();
         }
+
         callbackContext.success();
     }
 
-    private void setMediaSource(Uri uri, CallbackContext callbackContext) {
+    private void setMediaSource(Uri uri, String title, String imageUrl, CallbackContext callbackContext) {
+        this.title = title;
         this.uri = uri;
+
+        new Thread(() -> {
+            try {
+                largeIcon = BitmapFactory.decodeStream(new URL(imageUrl).openConnection().getInputStream());
+
+                if (mediaBrowser.isConnected()) {
+                    setSessionMetadata();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
         if (mediaBrowser.isConnected()) {
             mediaController.getTransportControls().prepareFromUri(uri, null);
         }
         callbackContext.success();
+    }
+
+    private void setSessionMetadata() {
+        Bundle setMetadataParams = new Bundle();
+        setMetadataParams.putString(CUSTOM_ACTION_SET_SESSION_METADATA_TITLE_PARAM_NAME, title);
+        setMetadataParams.putParcelable(CUSTOM_ACTION_SET_SESSION_METADATA_ICON_PARAM_NAME, largeIcon);
+        mediaController.getTransportControls().sendCustomAction(CUSTOM_ACTION_SET_SESSION_METADATA_ACTION_NAME, setMetadataParams);
     }
 }

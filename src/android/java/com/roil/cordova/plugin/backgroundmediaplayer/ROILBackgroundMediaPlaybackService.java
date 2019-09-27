@@ -1,36 +1,75 @@
 package com.roil.cordova.plugin.backgroundmediaplayer;
 
-import android.annotation.TargetApi;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.PlaybackParams;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.ResultReceiver;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaBrowserServiceCompat;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaButtonReceiver;
+import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.view.KeyEvent;
+
+import com.roil.roil.R;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompat {
-    private static final String LOG_TAG = "ROILBackgroundMediaPlaybackService";
     private static final String EMPTY_MEDIA_ROOT_ID = "empty_root_id";
+    private static final String LOG_TAG = "ROILBackgroundMediaPlaybackService";
+    private static final String NOTIFICATION_CHANNEL_ID = "ROILBackgroundPlayerNotificationChannel";
 
-    private MediaSessionCompat mediaSession;
-    private PlaybackStateCompat.Builder stateBuilder;
+    private AtomicInteger nextNotificationId = new AtomicInteger();
     private MediaPlayer player;
+    private MediaSessionCompat mediaSession;
     private TimerTask progressUpdatesTask;
     private Timer progressUpdatesTimer;
 
+    private int currentNotificationId = 0;
+
     private class MediaSessionCallback extends MediaSessionCompat.Callback {
+        @Override
+        public boolean onMediaButtonEvent(Intent mediaButtonEvent) {
+            boolean handled = true;
+            KeyEvent keyEvent = mediaButtonEvent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+            if (keyEvent != null && keyEvent.getAction() == KeyEvent.ACTION_DOWN) {
+                int keyCode = keyEvent.getKeyCode();
+                switch(keyCode) {
+                    case KeyEvent.KEYCODE_MEDIA_PLAY:
+                        onPlay();
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_PAUSE:
+                        onPause();
+                        break;
+                    default:
+                        handled = super.onMediaButtonEvent(mediaButtonEvent);
+                        break;
+                }
+            }
+
+            return handled;
+        }
+
         @Override
         public void onPrepareFromUri(Uri uri, Bundle extras) {
             if (player != null) {
@@ -57,10 +96,29 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         }
 
         @Override
+        public void onStop() {
+            clearProgressUpdates();
+
+            player.pause();
+            mediaSession.setActive(false);
+
+            stopForeground(false);
+            clearNotification();
+            stopSelf();
+        }
+
+        @Override
         public void onPause() {
             if (player.isPlaying()) {
-                player.pause();
                 clearProgressUpdates();
+                setPlaybackState(PlaybackStateCompat.STATE_PAUSED, 0.0f);
+
+                player.pause();
+                mediaSession.setActive(false);
+
+                stopForeground(false);
+
+                buildNotification();
             }
         }
 
@@ -68,8 +126,12 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         public void onPlay() {
             if (!player.isPlaying()) {
                 player.start();
+                mediaSession.setActive(true);
+
                 scheduleProgressUpdates();
+                buildNotification();
             }
+
         }
 
         @Override
@@ -78,14 +140,24 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         }
 
         @Override
-        @TargetApi(Build.VERSION_CODES.M)
         public void onCustomAction(String action, Bundle extras) {
-            if (action.equals(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME)) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M &&
+                    action.equals(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_PLAYBACK_SPEED_ACTION_NAME)) {
                 float playbackSpeed = extras.getFloat(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_PLAYBACK_SPEED_PARAM_NAME);
                 PlaybackParams playbackParams = new PlaybackParams();
                 playbackParams.setSpeed(playbackSpeed);
                 player.setPlaybackParams(playbackParams);
                 scheduleProgressUpdates();
+            } else if (action.equals(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_SESSION_METADATA_ACTION_NAME)) {
+                String notificationTitle = extras.getString(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_SESSION_METADATA_TITLE_PARAM_NAME);
+                Bitmap notificationIcon = extras.getParcelable(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_SESSION_METADATA_ICON_PARAM_NAME);
+
+                MediaMetadataCompat.Builder metadataBuilder = new MediaMetadataCompat.Builder();
+                metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_AUTHOR, notificationTitle.substring(0, notificationTitle.indexOf(" - ")));
+                metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_TITLE, notificationTitle.substring(notificationTitle.indexOf(" - ") + 3));
+                metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, notificationIcon);
+
+                mediaSession.setMetadata(metadataBuilder.build());
             }
         }
     }
@@ -94,21 +166,32 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
     public void onCreate() {
         super.onCreate();
 
-        mediaSession = new MediaSessionCompat(this, LOG_TAG);
+        Context context = this;
 
+        mediaSession = new MediaSessionCompat(context, LOG_TAG);
         mediaSession.setFlags(
                 MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
                         MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
 
-        stateBuilder = new PlaybackStateCompat.Builder()
-                .setActions(
-                        PlaybackStateCompat.ACTION_PLAY |
-                                PlaybackStateCompat.ACTION_PLAY_PAUSE);
-        mediaSession.setPlaybackState(stateBuilder.build());
+        PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
+                .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE);
 
+        mediaSession.setPlaybackState(stateBuilder.build());
         mediaSession.setCallback(new MediaSessionCallback());
 
         setSessionToken(mediaSession.getSessionToken());
+    }
+
+    @Override
+    public void onDestroy() {
+        this.clearProgressUpdates();
+        this.clearNotification();
+
+        player.stop();
+        player.release();
+
+        mediaSession.setActive(false);
+        mediaSession.release();
     }
 
     @Nullable
@@ -120,6 +203,13 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
     @Override
     public void onLoadChildren(@NonNull String parentId, @NonNull Result<List<MediaBrowserCompat.MediaItem>> result) {
         result.sendResult(null);
+    }
+
+    private void clearNotification() {
+        if (currentNotificationId != 0) {
+            NotificationManagerCompat.from(this).cancel(currentNotificationId);
+            currentNotificationId = 0;
+        }
     }
 
     private void clearProgressUpdates() {
@@ -135,24 +225,119 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         }
     }
 
+    private int getIconResourceId(String name) {
+        return getResources().getIdentifier(name,"drawable", getPackageName());
+    }
+
+    private float getPlaybackSpeed() {
+        float playbackSpeed;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            playbackSpeed = player.getPlaybackParams().getSpeed();
+        } else {
+            playbackSpeed = 1.0f;
+        }
+
+        return playbackSpeed;
+    }
+
+    private void buildNotification() {
+        if (currentNotificationId == 0 || currentNotificationId == nextNotificationId.get()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                CharSequence name = getString(R.string.app_name);
+                String channelDescription = getString(R.string.app_name);
+                int importance = NotificationManager.IMPORTANCE_DEFAULT;
+                NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance);
+                channel.setDescription(channelDescription);
+                NotificationManager notificationManager = this.getSystemService(NotificationManager.class);
+                notificationManager.createNotificationChannel(channel);
+            }
+
+            if (currentNotificationId == 0) {
+                currentNotificationId = nextNotificationId.incrementAndGet();
+            }
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
+
+            MediaControllerCompat mediaController = mediaSession.getController();
+            MediaMetadataCompat metadata = mediaController.getMetadata();
+
+            builder
+                    .setContentTitle(metadata.getString(MediaMetadataCompat.METADATA_KEY_AUTHOR))
+                    .setContentText(metadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
+                    .setLargeIcon(metadata.getDescription().getIconBitmap())
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setSmallIcon(getIconResourceId(getString(R.string.notification_app_icon)))
+                    .setOnlyAlertOnce(true);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                builder.setStyle(
+                        new android.support.v4.media.app.NotificationCompat.MediaStyle()
+                                .setMediaSession(mediaSession.getSessionToken())
+                                .setShowActionsInCompactView(0)
+                                .setShowCancelButton(true)
+                                .setCancelButtonIntent(
+                                        MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                                this,
+                                                PlaybackStateCompat.ACTION_PAUSE
+                                        )
+                                )
+                );
+            }
+
+            if (player.isPlaying()) {
+                builder
+                        .setOngoing(true)
+                        .addAction(
+                                new NotificationCompat.Action(
+                                        getIconResourceId("ic_pause"),
+                                        getString(R.string.notification_pause_button_label),
+                                        MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                                this,
+                                                PlaybackStateCompat.ACTION_PAUSE
+                                        )
+                                )
+                        );
+
+                startForeground(currentNotificationId, builder.build());
+            } else {
+                builder
+                        .setOngoing(false)
+                        .setDeleteIntent(MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                this,
+                                PlaybackStateCompat.ACTION_STOP
+                        ))
+                        .addAction(
+                                new NotificationCompat.Action(
+                                        getIconResourceId("ic_play"),
+                                        getString(R.string.notification_play_button_label),
+                                        MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                                this,
+                                                PlaybackStateCompat.ACTION_PLAY
+                                        )
+                                )
+                        );
+                NotificationManagerCompat.from(this).notify(currentNotificationId, builder.build());
+            }
+        }
+    }
+
     private void scheduleProgressUpdates() {
         progressUpdatesTask = new TimerTask() {
             @Override
             public void run() {
-                float playbackSpeed;
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    playbackSpeed = player.getPlaybackParams().getSpeed();
-                } else {
-                    playbackSpeed = 1.0f;
-                }
-                PlaybackStateCompat playbackState = new PlaybackStateCompat.Builder()
-                        .setState(PlaybackStateCompat.STATE_PLAYING, player.getCurrentPosition(), playbackSpeed)
-                        .build();
-
-                mediaSession.setPlaybackState(playbackState);
+                int playbackState = player.isPlaying() ? PlaybackStateCompat.STATE_PLAYING :
+                        PlaybackStateCompat.STATE_PAUSED;
+                setPlaybackState(playbackState, getPlaybackSpeed());
             }
         };
         progressUpdatesTimer = new Timer();
         progressUpdatesTimer.scheduleAtFixedRate(progressUpdatesTask, 0, 500);
+    }
+
+    private void setPlaybackState(int newState, float playbackSpeed) {
+        PlaybackStateCompat playbackState = new PlaybackStateCompat.Builder()
+                .setState(newState, player.getCurrentPosition(), playbackSpeed)
+                .build();
+
+        mediaSession.setPlaybackState(playbackState);
     }
 }
