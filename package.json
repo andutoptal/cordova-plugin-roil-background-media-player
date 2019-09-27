@@ -12,5 +12,6 @@
   "devDependencies": {
     "@types/cordova": "0.0.34",
     "typescript": "^3.6.2"
-  }
+  },
+  "dependencies": {}
 }
