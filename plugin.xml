@@ -8,6 +8,9 @@
     <js-module name="ROILBackgroundMediaPlayer" src="www/index.js">
         <merges target="cordova.plugins" />
     </js-module>
+    <preference name="ANDROID_NOTIFICATION_APP_ICON" default="ic_notification" />
+    <preference name="ANDROID_NOTIFICATION_PLAY_ICON" default="ic_play" />
+    <preference name="ANDROID_NOTIFICATION_PAUSE_ICON" default="ic_pause" />
     <platform name="android">
         <config-file parent="/*" target="res/xml/config.xml">
             <feature name="ROILBackgroundMediaPlayer">
@@ -15,6 +18,8 @@
                        value="com.roil.cordova.plugin.backgroundmediaplayer.ROILBackgroundMediaPlayer" />
             </feature>
         </config-file>
+        <source-file src="src/android/res/values/roil_background_player_settings.xml"
+                     target-dir="res/values" />
         <config-file parent="/*/application" target="AndroidManifest.xml">
             <service android:name="com.roil.cordova.plugin.backgroundmediaplayer.ROILBackgroundMediaPlaybackService">
                 <intent-filter>
@@ -26,9 +31,7 @@
                      target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
         <source-file src="src/android/java/com/roil/cordova/plugin/backgroundmediaplayer/ROILBackgroundMediaPlaybackService.java"
                      target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
-        <source-file src="src/android/res/values/roil_background_player_settings.xml"
-                     target-dir="res/values" />
-        <config-file target="res/values/roil_backgorund_player_settings.xml" parent="/*">
+        <config-file target="app/src/main/res/values/roil_background_player_settings.xml" parent="/*">
             <string name="notification_app_icon">$ANDROID_NOTIFICATION_APP_ICON</string>
             <string name="notification_pause_icon">$ANDROID_NOTIFICATION_PAUSE_ICON</string>
             <string name="notification_play_icon">$ANDROID_NOTIFICATION_PLAY_ICON</string>
