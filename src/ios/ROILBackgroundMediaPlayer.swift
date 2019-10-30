@@ -12,10 +12,10 @@ import WebKit
     var player: AVPlayer?
     var playerContext = 0
     var playerItemContext = 0
-    var source: String = ""
-    var timer: Timer?
+    var readyToPlay = false
     var title: String = ""
     var shouldRestartPlay = false
+    var shouldStartPlay = false
 
     open override func pluginInitialize() {
         avSession = AVAudioSession.sharedInstance()
@@ -23,31 +23,31 @@ import WebKit
 
     @objc(setMediaSource:)
     func setMediaSource(_ command: CDVInvokedUrlCommand) -> Void {
-        guard let source = command.argument(at: 0) else {
+        guard let url = URL(string: command.argument(at: 0) as! String) else {
             sendErrorResult()
             return
         }
-        self.source = source as! String
+
         title = command.argument(at: 1, withDefault: title) as! String
         imageUrl = command.argument(at: 2, withDefault: imageUrl) as! String
         
+        player = AVPlayer(url: url)
+        player?.currentItem?.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.status), options: [.old, .new], context: &playerItemContext)
+
         self.commandDelegate.send(CDVPluginResult(status: CDVCommandStatus.ok), callbackId: command.callbackId)
     }
 
     @objc(play:)
     func play(command: CDVInvokedUrlCommand) -> Void {
-        guard let url = URL(string: source) else {
-            sendErrorResult()
-            return
-        }
-
         position = command.argument(at: 0, withDefault: 0.0) as! Double
         playbackSpeed = command.argument(at: 1, withDefault: 1.0) as! Float
 
         callbackId = command.callbackId
-        
-        player = AVPlayer(url: url)
-        player?.currentItem?.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.status), options: [.old, .new], context: &playerItemContext)
+        if readyToPlay {
+            startPlay()
+        } else {
+            shouldStartPlay = true
+        }
     }
 
     @objc(pause:)
@@ -56,11 +56,6 @@ import WebKit
         player?.rate = 0.0
         player = nil
         
-        if (timer != nil) {
-            timer?.invalidate()
-            timer = nil
-        }
-
         let result = [
             "position": currentTime,
             "state": "playing"
@@ -84,12 +79,11 @@ import WebKit
 
             switch status {
             case .readyToPlay:
-                if callbackId != "" {
-                    self.player?.currentItem?.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.status))
-                    player?.seek(to: CMTime(seconds: position, preferredTimescale: 1), completionHandler: {_ in
-                        self.clearNowPlaying()
-                        self.configureAudioSessionAndStartPlay()
-                    })
+                self.readyToPlay = true
+                self.player?.currentItem?.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.status))
+
+                if self.shouldStartPlay {
+                    self.startPlay()
                 }
             case .failed:
                 self.sendErrorResult()
@@ -98,13 +92,22 @@ import WebKit
             }
         }
     }
+
+    func startPlay() {
+        shouldStartPlay = false
+
+        player?.seek(to: CMTime(seconds: position, preferredTimescale: 1), completionHandler: {_ in
+            self.clearNowPlaying()
+            self.configureAudioSessionAndStartPlay()
+        })
+    }
     
     func configureAudioSessionAndStartPlay() {
         do {
             try self.avSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try self.avSession.setActive(true)
 
-            if (self.playbackSpeed == 1.0) {
+            if self.playbackSpeed == 1.0 {
                 self.player?.play()
             } else {
                 self.player?.rate = self.playbackSpeed
