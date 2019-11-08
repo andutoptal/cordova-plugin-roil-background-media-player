@@ -36,6 +36,10 @@
             <string name="notification_pause_icon">$ANDROID_NOTIFICATION_PAUSE_ICON</string>
             <string name="notification_play_icon">$ANDROID_NOTIFICATION_PLAY_ICON</string>
         </config-file>
+        <config-file target="app/src/main/res/values/strings.xml" parent="/*">
+            <string name="notification_pause_button_label">PAUSE</string>
+            <string name="notification_play_button_label">PLAY</string>
+        </config-file>
     </platform>
     <platform name="ios">
         <config-file parent="/*" target="config.xml">
