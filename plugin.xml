@@ -20,13 +20,15 @@
         </config-file>
         <source-file src="src/android/res/values/roil_background_player_settings.xml"
                      target-dir="res/values" />
+        <config-file parent="/manifest" target="AndroidManifest.xml">
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+        </config-file>
         <config-file parent="/*/application" target="AndroidManifest.xml">
             <service android:name="com.roil.cordova.plugin.backgroundmediaplayer.ROILBackgroundMediaPlaybackService">
                 <intent-filter>
                     <action android:name="android.media.browse.MediaBrowserService" />
                 </intent-filter>
             </service>
-            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
         </config-file>
         <source-file src="src/android/java/com/roil/cordova/plugin/backgroundmediaplayer/ROILBackgroundMediaPlayer.java"
                      target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
