@@ -26,6 +26,7 @@
                     <action android:name="android.media.browse.MediaBrowserService" />
                 </intent-filter>
             </service>
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
         </config-file>
         <source-file src="src/android/java/com/roil/cordova/plugin/backgroundmediaplayer/ROILBackgroundMediaPlayer.java"
                      target-dir="src/com/roil/cordova/plugin/backgroundmediaplayer" />
