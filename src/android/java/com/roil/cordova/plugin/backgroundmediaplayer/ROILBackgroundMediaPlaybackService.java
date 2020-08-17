@@ -1,6 +1,5 @@
 package com.roil.cordova.plugin.backgroundmediaplayer;
 
-import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -12,21 +11,19 @@ import android.media.PlaybackParams;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v4.media.MediaBrowserCompat;
-import android.support.v4.media.MediaBrowserServiceCompat;
 import android.support.v4.media.MediaMetadataCompat;
-import android.support.v4.media.session.MediaButtonReceiver;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.view.KeyEvent;
 
-import com.roil.roil.R;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.media.MediaBrowserServiceCompat;
+import androidx.media.session.MediaButtonReceiver;
 
 import java.io.IOException;
 import java.util.List;
@@ -243,11 +240,15 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
     private void buildNotification() {
         if (currentNotificationId == 0 || currentNotificationId == nextNotificationId.get()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                CharSequence name = getString(R.string.app_name);
-                String channelDescription = getString(R.string.app_name);
+                String appName = getString(getResources().getIdentifier(
+                        "app_name",
+                        "string",
+                        getPackageName()
+                        )
+                );
                 int importance = NotificationManager.IMPORTANCE_DEFAULT;
-                NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance);
-                channel.setDescription(channelDescription);
+                NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, appName, importance);
+                channel.setDescription(appName);
                 NotificationManager notificationManager = this.getSystemService(NotificationManager.class);
                 notificationManager.createNotificationChannel(channel);
             }
@@ -265,12 +266,20 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
                     .setContentText(metadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
                     .setLargeIcon(metadata.getDescription().getIconBitmap())
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setSmallIcon(getIconResourceId(getString(R.string.notification_app_icon)))
+                    .setSmallIcon(getIconResourceId(
+                            getString(
+                                    getResources().getIdentifier(
+                                            "notification_app_icon",
+                                            "string",
+                                            getPackageName()
+                                    )
+                            )
+                    ))
                     .setOnlyAlertOnce(true);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 builder.setStyle(
-                        new android.support.v4.media.app.NotificationCompat.MediaStyle()
+                        new androidx.media.app.NotificationCompat.MediaStyle()
                                 .setMediaSession(mediaSession.getSessionToken())
                                 .setShowActionsInCompactView(0)
                                 .setShowCancelButton(true)
@@ -289,7 +298,12 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
                         .addAction(
                                 new NotificationCompat.Action(
                                         getIconResourceId("ic_pause"),
-                                        getString(R.string.notification_pause_button_label),
+                                        getString(getResources().getIdentifier(
+                                                "notification_pause_button_label",
+                                                "string",
+                                                getPackageName()
+                                                )
+                                        ),
                                         MediaButtonReceiver.buildMediaButtonPendingIntent(
                                                 this,
                                                 PlaybackStateCompat.ACTION_PAUSE
@@ -308,7 +322,12 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
                         .addAction(
                                 new NotificationCompat.Action(
                                         getIconResourceId("ic_play"),
-                                        getString(R.string.notification_play_button_label),
+                                        getString(getResources().getIdentifier(
+                                                "notification_play_button_label",
+                                                "string",
+                                                getPackageName()
+                                                )
+                                        ),
                                         MediaButtonReceiver.buildMediaButtonPendingIntent(
                                                 this,
                                                 PlaybackStateCompat.ACTION_PLAY
