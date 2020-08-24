@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<plugin id="cordova-plugin-roil-background-media-player" version="1.2.0-dev"
+<plugin id="cordova-plugin-roil-background-media-player" version="1.3.0-dev"
         xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>Background media player for ROIL app</name>
     <description>Plugin to play media in the background when the app is not in foreground</description>
@@ -20,6 +20,9 @@
         </config-file>
         <source-file src="src/android/res/values/roil_background_player_settings.xml"
                      target-dir="res/values" />
+        <config-file parent="/manifest" target="AndroidManifest.xml">
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+        </config-file>
         <config-file parent="/*/application" target="AndroidManifest.xml">
             <service android:name="com.roil.cordova.plugin.backgroundmediaplayer.ROILBackgroundMediaPlaybackService">
                 <intent-filter>

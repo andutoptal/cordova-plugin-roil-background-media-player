@@ -133,12 +133,12 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
         new Thread(() -> {
             try {
                 largeIcon = BitmapFactory.decodeStream(new URL(imageUrl).openConnection().getInputStream());
-
-                if (mediaBrowser.isConnected()) {
-                    setSessionMetadata();
-                }
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+
+            if (mediaBrowser.isConnected()) {
+                setSessionMetadata();
             }
         }).start();
 
