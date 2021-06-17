@@ -5,7 +5,7 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.media.AudioManager;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.PlaybackParams;
 import android.net.Uri;
@@ -76,7 +76,11 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
 
             try {
                 player = new MediaPlayer();
-                player.setAudioStreamType(AudioManager.STREAM_MUSIC);
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build();
+                player.setAudioAttributes(audioAttributes);
                 player.setDataSource(ROILBackgroundMediaPlaybackService.this, uri);
                 player.setOnCompletionListener(mediaPlayer -> {
                     clearProgressUpdates();
@@ -184,11 +188,17 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
         this.clearProgressUpdates();
         this.clearNotification();
 
-        player.stop();
-        player.release();
+        if (player != null) {
+            if (player.isPlaying()) {
+                player.stop();
+            }
+            player.release();
+        }
 
-        mediaSession.setActive(false);
-        mediaSession.release();
+        if (mediaSession != null) {
+            mediaSession.setActive(false);
+            mediaSession.release();
+        }
     }
 
     @Nullable
