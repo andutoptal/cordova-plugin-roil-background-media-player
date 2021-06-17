@@ -154,7 +154,7 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
                 Bitmap notificationIcon = extras.getParcelable(ROILBackgroundMediaPlayer.CUSTOM_ACTION_SET_SESSION_METADATA_ICON_PARAM_NAME);
 
                 MediaMetadataCompat.Builder metadataBuilder = new MediaMetadataCompat.Builder();
-                metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_AUTHOR, notificationTitle.substring(0, notificationTitle.indexOf(" - ")));
+                metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, notificationTitle.substring(0, notificationTitle.indexOf(" - ")));
                 metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_TITLE, notificationTitle.substring(notificationTitle.indexOf(" - ") + 3));
                 metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, notificationIcon);
 
@@ -272,7 +272,7 @@ public class ROILBackgroundMediaPlaybackService extends MediaBrowserServiceCompa
             MediaMetadataCompat metadata = mediaController.getMetadata();
 
             builder
-                    .setContentTitle(metadata.getString(MediaMetadataCompat.METADATA_KEY_AUTHOR))
+                    .setContentTitle(metadata.getString(MediaMetadataCompat.METADATA_KEY_ARTIST))
                     .setContentText(metadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE))
                     .setLargeIcon(metadata.getDescription().getIconBitmap())
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

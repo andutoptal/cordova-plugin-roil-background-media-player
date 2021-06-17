@@ -51,9 +51,7 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
                     try {
                         mediaController = new MediaControllerCompat(context, token);
                         mediaController.getTransportControls().prepareFromUri(uri, null);
-                        if (largeIcon != null && !title.isEmpty()) {
-                            setSessionMetadata();
-                        }
+                        setSessionMetadata();
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
@@ -137,7 +135,7 @@ public class ROILBackgroundMediaPlayer extends CordovaPlugin {
                 e.printStackTrace();
             }
 
-            if (mediaBrowser.isConnected()) {
+            if (mediaBrowser.isConnected() && mediaController != null) {
                 setSessionMetadata();
             }
         }).start();
